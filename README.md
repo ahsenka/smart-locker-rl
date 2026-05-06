@@ -179,7 +179,7 @@ Bu sayede exploration ve exploitation dengesi sağlanmıştır.
 | Başlangıç Epsilon | 0.2 |
 | Minimum Epsilon | 0.01 |
 
-Problem küçük state space’e sahip olduğu için 5000 episode yeterli olmuştur. Daha yüksek episode sayıları anlamlı performans artışı sağlamamıştır.
+Environment küçük bir state space’e sahip olduğu için 5000 episode yeterli performansı sağlamıştır. Yapılan testlerde 10000 episode kullanımının anlamlı bir performans artışı oluşturmadığı gözlemlenmiştir. Bu nedenle eğitim süresi ve performans dengesi açısından 5000 episode tercih edilmiştir.
 
 ---
 
