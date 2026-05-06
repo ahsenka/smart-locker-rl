@@ -79,7 +79,7 @@ class Trainer:
 
             for step in range(self.max_step):
 
-                # random agent tamamen rastgele karar veriyor
+                # random agent tamamen rastgele karar veriyor :)
                 aksiyon = random.randint(0, 2)
 
                 sonraki_state, odul, done = self.env.step(aksiyon)
