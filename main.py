@@ -25,8 +25,7 @@ def test_simulasyonu(env, agent, visualizer):
         frame = visualizer.locker_gorseli_olustur(
         bos_kucuk,
         bos_orta,
-        bos_buyuk,
-        step,
+        bos_buyuk,step,
         state[3],
         aksiyon,
         odul)
