@@ -7,11 +7,13 @@ class Visualizer:
 
     def __init__(self):
 
+        # çıktı klasörleri yoksa oluşturuluyor
         os.makedirs("outputs/plots", exist_ok=True)
         os.makedirs("outputs/gifs", exist_ok=True)
 
     def odul_grafigi_ciz(self, toplam_oduller):
 
+        # episode bazlı ham toplam ödül grafiği çiziliyor
         plt.figure(figsize=(12, 6))
 
         plt.plot(toplam_oduller)
@@ -30,6 +32,7 @@ class Visualizer:
 
     def moving_average_grafigi(self, toplam_oduller):
 
+        # ödül değerlerindeki ani dalgalanmaları azaltmak için hareketli ortalama alınıyor
         pencere = 100
 
         ortalamalar = []
@@ -62,8 +65,19 @@ class Visualizer:
 
         plt.close()
 
-    def locker_gorseli_olustur(self,bos_kucuk,bos_orta,bos_buyuk,step,gelen_paket,aksiyon,odul):
+    def locker_gorseli_olustur(
+            self,
+            bos_kucuk,
+            bos_orta,
+            bos_buyuk,
+            step,
+            gelen_paket,
+            aksiyon,
+            odul,
+            toplam_odul=None
+        ):
 
+        # her step için locker durumunu görsel olarak çiziyoruz
         fig, ax = plt.subplots(figsize=(10, 4))
 
         ax.set_xlim(0, 6)
@@ -74,6 +88,8 @@ class Visualizer:
         )
 
         ax.axis("off")
+
+        # paket ve aksiyon değerlerini okunabilir yazıya çevirmek için kullanılıyor
         paket_isimleri = {
             0: "küçük paket",
             1: "orta paket",
@@ -85,11 +101,13 @@ class Visualizer:
             1: "orta locker",
             2: "büyük locker"
         }
-            # locker çizim helperı
-        def locker_satiri_ciz(y,bos_sayi,toplam, label):
+
+        # küçük, orta ve büyük locker satırlarını çizmek için yardımcı fonksiyon
+        def locker_satiri_ciz(y, bos_sayi, toplam, label):
 
             for i in range(toplam):
 
+                # boş olmayan lockerlar dolu olarak gösteriliyor
                 dolu_mu = i < (toplam - bos_sayi)
 
                 renk = (
@@ -116,6 +134,7 @@ class Visualizer:
                 fontweight="bold"
             )
 
+        # locker satırları çiziliyor
         locker_satiri_ciz(
             3,
             bos_kucuk,
@@ -140,6 +159,8 @@ class Visualizer:
         dosya_adi = (
             f"outputs/gifs/frame_{step}.png"
         )
+
+        # gifte karar bilgisinin görünmesi için step bilgileri yazdırılıyor
         ax.text(
             0.5,
             0.3,
@@ -161,16 +182,24 @@ class Visualizer:
             fontsize=11,
             fontweight="bold"
         )
+        if toplam_odul is not None:
+
+            ax.text(
+                3.5,
+                0.3,
+                f"toplam ödül: {toplam_odul}",
+                fontsize=11,
+                fontweight="bold"
+            )
         plt.savefig(dosya_adi)
 
         plt.close()
 
         return dosya_adi
-       
-       
 
     def gif_olustur(self, frame_listesi):
 
+        # oluşturulan frame görselleri birleştirilip gif haline getiriliyor
         kareler = []
 
         for frame in frame_listesi:
@@ -182,10 +211,12 @@ class Visualizer:
         imageio.mimsave(
             "outputs/gifs/locker_simulasyonu.gif",
             kareler,
-            duration=0.6
+            duration=700
         )
+
     def basari_grafigi(self, basari_listesi):
 
+        # başarı oranını daha okunabilir göstermek için hareketli ortalama kullanılıyor
         oranlar = []
 
         pencere = 100
@@ -220,9 +251,10 @@ class Visualizer:
         )
 
         plt.close()
-    
+
     def karsilastirma_grafigi(self, q_oduller, random_oduller):
 
+        # q-learning ajanı ile rastgele ajanı aynı grafik üzerinde karşılaştırıyorum 
         pencere = 100
 
         q_ortalamalar = []

@@ -7,7 +7,7 @@ def test_simulasyonu(env, agent, visualizer):
     state = env.reset()
 
     frame_listesi = []
-
+    toplam_test_odulu = 0
     print("\n test simulasyonu başladı \n")
 
     for step in range(15):
@@ -16,19 +16,22 @@ def test_simulasyonu(env, agent, visualizer):
         aksiyon = agent.aksiyon_sec(state)
 
         sonraki_state, odul, done = env.step(aksiyon)
-
+        toplam_test_odulu += odul #sonda toplam odulu hesaplams olmasi icin
         bos_kucuk = env.bos_kucuk
         bos_orta = env.bos_orta
         bos_buyuk = env.bos_buyuk
 
         # frame oluşturuluyor
         frame = visualizer.locker_gorseli_olustur(
-        bos_kucuk,
-        bos_orta,
-        bos_buyuk,step,
-        state[3],
-        aksiyon,
-        odul)
+            bos_kucuk,
+            bos_orta,
+            bos_buyuk,
+            step,
+            state[3],
+            aksiyon,
+            odul,
+            toplam_test_odulu if step == 14 or done else None
+        )
 
         frame_listesi.append(frame)
 

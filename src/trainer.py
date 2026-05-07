@@ -10,7 +10,7 @@ class Trainer:
         self.env = LockerEnvironment()
         self.agent = QLearningAgent()
 
-        # 10000 yerine 5000 seçildi
+        # 10000 yerine 5000 seçildi 10000 gereksizdi ama en basta oyle denemistim
         # bu problemde state sayısı düşük olduğu için yeterli oluyor
         self.episode_sayisi = 5000
         self.max_step = 30
