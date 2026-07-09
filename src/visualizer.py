@@ -1,294 +1,351 @@
 import os
-import imageio
+
+import imageio.v2 as imageio
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+from src.environment import LockerEnvironment
 
 
 class Visualizer:
-
     def __init__(self):
-
-        # çıktı klasörleri yoksa oluşturuluyor
         os.makedirs("outputs/plots", exist_ok=True)
         os.makedirs("outputs/gifs", exist_ok=True)
 
-    def odul_grafigi_ciz(self, toplam_oduller):
+    def _moving_average(self, values, window=100):
+        averages = []
+        for index in range(len(values)):
+            start = max(0, index - window)
+            window_values = values[start:index + 1]
+            averages.append(sum(window_values) / len(window_values))
+        return averages
 
-        # episode bazlı ham toplam ödül grafiği çiziliyor
+    def reward_plot(self, total_rewards):
         plt.figure(figsize=(12, 6))
-
-        plt.plot(toplam_oduller)
-
-        plt.title("episode bazlı toplam ödül")
-        plt.xlabel("episode")
-        plt.ylabel("toplam ödül")
-
-        plt.grid(True)
-
-        plt.savefig(
-            "outputs/plots/odul_grafigi.png"
-        )
-
+        plt.plot(total_rewards, color="#2f6f9f", linewidth=1)
+        plt.title("Episode Based Total Reward")
+        plt.xlabel("Episode")
+        plt.ylabel("Total Reward")
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("outputs/plots/odul_grafigi.png", dpi=140)
         plt.close()
 
-    def moving_average_grafigi(self, toplam_oduller):
+    def moving_average_plot(self, total_rewards):
+        plt.figure(figsize=(12, 6))
+        plt.plot(
+            self._moving_average(total_rewards),
+            color="#1b7f5f",
+            linewidth=2,
+        )
+        plt.title("Moving Average Reward")
+        plt.xlabel("Episode")
+        plt.ylabel("Average Reward")
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("outputs/plots/moving_average.png", dpi=140)
+        plt.close()
 
-        # ödül değerlerindeki ani dalgalanmaları azaltmak için hareketli ortalama alınıyor
-        pencere = 100
+    def success_plot(self, success_values):
+        plt.figure(figsize=(12, 6))
+        plt.plot(
+            self._moving_average(success_values),
+            color="#6f4aa3",
+            linewidth=2,
+        )
+        plt.title("Success Rate")
+        plt.xlabel("Episode")
+        plt.ylabel("Success Rate")
+        plt.ylim(-0.05, 1.05)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("outputs/plots/basari_grafigi.png", dpi=140)
+        plt.close()
 
-        ortalamalar = []
+    def acceptance_plot(self, acceptance_rates, invalid_move_rates):
+        plt.figure(figsize=(12, 6))
+        plt.plot(
+            self._moving_average(acceptance_rates),
+            label="Accepted package rate",
+            color="#1b7f5f",
+            linewidth=2,
+        )
+        plt.plot(
+            self._moving_average(invalid_move_rates),
+            label="Invalid move rate",
+            color="#b94040",
+            linewidth=2,
+        )
+        plt.title("Placement Quality During Training")
+        plt.xlabel("Episode")
+        plt.ylabel("Rate")
+        plt.ylim(-0.05, 1.05)
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("outputs/plots/kabul_hata_orani.png", dpi=140)
+        plt.close()
 
-        for i in range(len(toplam_oduller)):
+    def q_table_plot(self, q_table_sizes):
+        plt.figure(figsize=(12, 6))
+        plt.plot(q_table_sizes, color="#8c6d1f", linewidth=2)
+        plt.title("Q-Table Growth")
+        plt.xlabel("Episode")
+        plt.ylabel("Visited State Count")
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("outputs/plots/q_table_buyumesi.png", dpi=140)
+        plt.close()
 
-            baslangic = max(0, i - pencere)
+    def comparison_plot(self, baseline_results):
+        names = list(baseline_results.keys())
+        averages = [
+            baseline_results[name]["average_reward"]
+            for name in names
+        ]
 
-            pencere_verisi = toplam_oduller[
-                baslangic:i + 1
-            ]
+        plt.figure(figsize=(10, 6))
+        colors = ["#1b7f5f", "#2f6f9f", "#b94040"]
+        bars = plt.bar(names, averages, color=colors[:len(names)])
+        plt.title("Agent Performance Comparison")
+        plt.xlabel("Agent")
+        plt.ylabel("Average Reward")
+        plt.grid(axis="y", alpha=0.3)
 
-            ortalamalar.append(
-                sum(pencere_verisi) / len(pencere_verisi)
+        for bar, value in zip(bars, averages):
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"{value:.1f}",
+                ha="center",
+                va="bottom" if value >= 0 else "top",
+                fontsize=10,
+                fontweight="bold",
             )
 
-        plt.figure(figsize=(12, 6))
-
-        plt.plot(ortalamalar)
-
-        plt.title("hareketli ortalama ödül grafiği")
-        plt.xlabel("episode")
-        plt.ylabel("ortalama ödül")
-
-        plt.grid(True)
-
-        plt.savefig(
-            "outputs/plots/moving_average.png"
-        )
-
+        plt.tight_layout()
+        plt.savefig("outputs/plots/agent_karsilastirma.png", dpi=140)
         plt.close()
 
-    def locker_gorseli_olustur(
-            self,
-            bos_kucuk,
-            bos_orta,
-            bos_buyuk,
-            step,
-            gelen_paket,
-            aksiyon,
-            odul,
-            toplam_odul=None
-        ):
+    def comparison_timeseries_plot(self, baseline_results):
+        plt.figure(figsize=(12, 6))
+        colors = {
+            "Q-Learning Agent": "#1b7f5f",
+            "Rule-Based Agent": "#2f6f9f",
+            "Random Agent": "#b94040",
+        }
 
-        # her step için locker durumunu görsel olarak çiziyoruz
-        fig, ax = plt.subplots(figsize=(10, 4))
+        for name, result in baseline_results.items():
+            plt.plot(
+                self._moving_average(result["rewards"], window=50),
+                label=name,
+                linewidth=2,
+                color=colors.get(name),
+            )
 
-        ax.set_xlim(0, 6)
-        ax.set_ylim(0, 4)
+        plt.title("Q-Learning vs Baseline Agents")
+        plt.xlabel("Evaluation Episode")
+        plt.ylabel("Moving Average Reward")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("outputs/plots/q_vs_baselines.png", dpi=140)
+        plt.close()
 
-        ax.set_title(
-            f"locker durumu - step {step}"
-        )
+        # Compatibility with the previous README image path.
+        plt.figure(figsize=(12, 6))
+        for name, result in baseline_results.items():
+            plt.plot(
+                self._moving_average(result["rewards"], window=50),
+                label=name,
+                linewidth=2,
+                color=colors.get(name),
+            )
+        plt.title("Q-Learning Agent vs Random and Rule-Based Agents")
+        plt.xlabel("Evaluation Episode")
+        plt.ylabel("Moving Average Reward")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("outputs/plots/q_vs_random.png", dpi=140)
+        plt.close()
 
+    def draw_simulation_frame(
+        self,
+        empty_lockers,
+        step,
+        package_label,
+        action_name,
+        reward,
+        total_reward,
+        accepted,
+        filename,
+    ):
+        fig, ax = plt.subplots(figsize=(11, 5))
+        ax.set_xlim(0, 7.5)
+        ax.set_ylim(0, 5.8)
         ax.axis("off")
 
-        # paket ve aksiyon değerlerini okunabilir yazıya çevirmek için kullanılıyor
-        paket_isimleri = {
-            0: "küçük paket",
-            1: "orta paket",
-            2: "büyük paket"
-        }
-
-        aksiyon_isimleri = {
-            0: "küçük locker",
-            1: "orta locker",
-            2: "büyük locker"
-        }
-
-        # küçük, orta ve büyük locker satırlarını çizmek için yardımcı fonksiyon
-        def locker_satiri_ciz(y, bos_sayi, toplam, label):
-
-            for i in range(toplam):
-
-                # boş olmayan lockerlar dolu olarak gösteriliyor
-                dolu_mu = i < (toplam - bos_sayi)
-
-                renk = (
-                    "red"
-                    if dolu_mu
-                    else "lightgray"
-                )
-
-                kare = plt.Rectangle(
-                    (i + 0.5, y),
-                    0.8,
-                    0.8,
-                    color=renk,
-                    ec="black"
-                )
-
-                ax.add_patch(kare)
-
-            ax.text(
-                0,
-                y + 0.3,
-                label,
-                fontsize=12,
-                fontweight="bold"
-            )
-
-        # locker satırları çiziliyor
-        locker_satiri_ciz(
-            3,
-            bos_kucuk,
-            5,
-            "küçük"
-        )
-
-        locker_satiri_ciz(
-            2,
-            bos_orta,
-            5,
-            "orta"
-        )
-
-        locker_satiri_ciz(
-            1,
-            bos_buyuk,
-            5,
-            "büyük"
-        )
-
-        dosya_adi = (
-            f"outputs/gifs/frame_{step}.png"
-        )
-
-        # gifte karar bilgisinin görünmesi için step bilgileri yazdırılıyor
+        title_color = "#1b7f5f" if accepted else "#b94040"
         ax.text(
-            0.5,
-            0.3,
-            f"gelen paket: {paket_isimleri[gelen_paket]}",
-            fontsize=11
+            0.1,
+            5.45,
+            f"Smart Locker Simulation - Step {step + 1}",
+            fontsize=16,
+            fontweight="bold",
+            color="#1f2933",
         )
-
         ax.text(
-            0.5,
-            0.0,
-            f"ajan kararı: {aksiyon_isimleri[aksiyon]}",
-            fontsize=11
-        )
-
-        ax.text(
-            3.5,
-            0.0,
-            f"ödül: {odul}",
+            0.1,
+            5.05,
+            f"Package: {package_label}",
             fontsize=11,
-            fontweight="bold"
+            color="#1f2933",
         )
-        if toplam_odul is not None:
+        ax.text(
+            0.1,
+            4.72,
+            f"Decision: {action_name} | Reward: {reward} | Total: {total_reward}",
+            fontsize=11,
+            color=title_color,
+            fontweight="bold",
+        )
 
-            ax.text(
-                3.5,
-                0.3,
-                f"toplam ödül: {toplam_odul}",
-                fontsize=11,
-                fontweight="bold"
-            )
-        plt.savefig(dosya_adi)
+        locker_rows = [
+            (0, "Small", 4.0, "#7fb3d5"),
+            (1, "Medium", 3.2, "#76d7c4"),
+            (2, "Large", 2.4, "#f7dc6f"),
+            (3, "XL", 1.6, "#f0b27a"),
+            (4, "Cold", 0.8, "#85c1e9"),
+        ]
 
+        for action, label, y, color in locker_rows:
+            total = LockerEnvironment().capacity[action]
+            empty = empty_lockers[action]
+            occupied = total - empty
+
+            ax.text(0.1, y + 0.23, label, fontsize=11, fontweight="bold")
+
+            for index in range(total):
+                filled = index < occupied
+                fill_color = color if filled else "#e5e7eb"
+                edge_color = "#111827"
+                rect = plt.Rectangle(
+                    (1.1 + index * 0.85, y),
+                    0.68,
+                    0.52,
+                    facecolor=fill_color,
+                    edgecolor=edge_color,
+                    linewidth=1,
+                )
+                ax.add_patch(rect)
+
+        status = "Accepted" if accepted else "Rejected"
+        ax.text(
+            5.8,
+            4.72,
+            status,
+            fontsize=13,
+            fontweight="bold",
+            color=title_color,
+            ha="center",
+        )
+
+        plt.tight_layout()
+        plt.savefig(filename, dpi=130)
         plt.close()
 
-        return dosya_adi
+    def create_simulation_gif(self, frame_paths, output_path):
+        frames = [imageio.imread(path) for path in frame_paths]
+        imageio.mimsave(output_path, frames, duration=900)
 
-    def gif_olustur(self, frame_listesi):
+    def create_3d_frame(
+        self,
+        empty_lockers,
+        step,
+        package_label,
+        action_name,
+        reward,
+        total_reward,
+        filename,
+    ):
+        fig = plt.figure(figsize=(10, 7))
+        ax = fig.add_subplot(111, projection="3d")
 
-        # oluşturulan frame görselleri birleştirilip gif haline getiriliyor
-        kareler = []
+        colors = ["#7fb3d5", "#76d7c4", "#f7dc6f", "#f0b27a", "#85c1e9"]
+        labels = ["Small", "Medium", "Large", "XL", "Cold"]
 
-        for frame in frame_listesi:
+        for action in range(5):
+            total = LockerEnvironment().capacity[action]
+            occupied = total - empty_lockers[action]
+            for slot in range(total):
+                z = slot * 0.42
+                color = colors[action] if slot < occupied else "#d9dee5"
+                alpha = 0.95 if slot < occupied else 0.35
+                ax.bar3d(
+                    action * 1.25,
+                    0,
+                    z,
+                    0.75,
+                    0.75,
+                    0.34,
+                    shade=True,
+                    color=color,
+                    alpha=alpha,
+                    edgecolor="#263238",
+                    linewidth=0.4,
+                )
 
-            kareler.append(
-                imageio.imread(frame)
+        ax.set_xticks(np.arange(5) * 1.25 + 0.35)
+        ax.set_xticklabels(labels)
+        ax.set_yticks([])
+        ax.set_zlabel("Slots")
+        ax.set_title(
+            f"3D Locker Simulation - Step {step + 1}\n"
+            f"{package_label} -> {action_name} | Reward {reward} | Total {total_reward}",
+            pad=18,
+        )
+        ax.view_init(elev=24, azim=-55)
+        ax.set_box_aspect((6, 1.8, 3))
+        fig.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.88)
+        plt.savefig(filename, dpi=130)
+        plt.close()
+
+    def create_summary_report(self, baseline_results):
+        lines = [
+            "Agent,Average Reward,Acceptance Rate,Invalid Move Rate",
+        ]
+        for name, result in baseline_results.items():
+            lines.append(
+                f"{name},"
+                f"{result['average_reward']:.2f},"
+                f"{result['acceptance_rate']:.3f},"
+                f"{result['invalid_move_rate']:.3f}"
             )
 
-        imageio.mimsave(
-            "outputs/gifs/locker_simulasyonu.gif",
-            kareler,
-            duration=700
-        )
+        with open("outputs/agent_summary.csv", "w", encoding="utf-8") as file:
+            file.write("\n".join(lines) + "\n")
+
+    # Backward-compatible Turkish method names.
+    def odul_grafigi_ciz(self, toplam_oduller):
+        self.reward_plot(toplam_oduller)
+
+    def moving_average_grafigi(self, toplam_oduller):
+        self.moving_average_plot(toplam_oduller)
 
     def basari_grafigi(self, basari_listesi):
-
-        # başarı oranını daha okunabilir göstermek için hareketli ortalama kullanılıyor
-        oranlar = []
-
-        pencere = 100
-
-        for i in range(len(basari_listesi)):
-
-            baslangic = max(0, i - pencere)
-
-            pencere_verisi = basari_listesi[
-                baslangic:i + 1
-            ]
-
-            oran = (
-                sum(pencere_verisi)
-                / len(pencere_verisi)
-            )
-
-            oranlar.append(oran)
-
-        plt.figure(figsize=(12, 6))
-
-        plt.plot(oranlar)
-
-        plt.title("başarı oranı")
-        plt.xlabel("episode")
-        plt.ylabel("başarı")
-
-        plt.grid(True)
-
-        plt.savefig(
-            "outputs/plots/basari_grafigi.png"
-        )
-
-        plt.close()
+        self.success_plot(basari_listesi)
 
     def karsilastirma_grafigi(self, q_oduller, random_oduller):
+        baseline_results = {
+            "Q-Learning Agent": {"rewards": q_oduller, "average_reward": sum(q_oduller) / len(q_oduller)},
+            "Random Agent": {"rewards": random_oduller, "average_reward": sum(random_oduller) / len(random_oduller)},
+        }
+        self.comparison_timeseries_plot(baseline_results)
 
-        # q-learning ajanı ile rastgele ajanı aynı grafik üzerinde karşılaştırıyorum 
-        pencere = 100
-
-        q_ortalamalar = []
-        random_ortalamalar = []
-
-        for i in range(len(q_oduller)):
-
-            baslangic = max(0, i - pencere)
-
-            q_pencere = q_oduller[baslangic:i + 1]
-            random_pencere = random_oduller[baslangic:i + 1]
-
-            q_ortalamalar.append(
-                sum(q_pencere) / len(q_pencere)
-            )
-
-            random_ortalamalar.append(
-                sum(random_pencere) / len(random_pencere)
-            )
-
-        plt.figure(figsize=(12, 6))
-
-        plt.plot(q_ortalamalar, label="q-learning agent")
-        plt.plot(random_ortalamalar, label="random agent")
-
-        plt.title("q-learning agent vs random agent")
-        plt.xlabel("episode")
-        plt.ylabel("ortalama ödül")
-
-        plt.legend()
-        plt.grid(True)
-
-        plt.savefig(
-            "outputs/plots/q_vs_random.png"
-        )
-
-        plt.close()
+    def gif_olustur(self, frame_listesi):
+        self.create_simulation_gif(frame_listesi, "outputs/gifs/locker_simulasyonu.gif")

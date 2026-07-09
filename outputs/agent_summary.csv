@@ -1,0 +1,4 @@
+Agent,Average Reward,Acceptance Rate,Invalid Move Rate
+Q-Learning Agent,-57.87,0.747,0.253
+Rule-Based Agent,-53.26,0.752,0.248
+Random Agent,-669.09,0.310,0.690

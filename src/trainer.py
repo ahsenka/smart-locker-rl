@@ -1,97 +1,155 @@
+from src.agent import QLearningAgent, RandomAgent, RuleBasedAgent
 from src.environment import LockerEnvironment
-from src.agent import QLearningAgent
-import random
 
 
 class Trainer:
+    def __init__(self, scenario="balanced", seed=42):
+        self.scenario = scenario
+        self.seed = seed
+        self.env = LockerEnvironment(scenario=scenario, seed=seed)
+        self.agent = QLearningAgent(seed=seed)
 
-    def __init__(self):
+        self.episode_count = 6000
+        self.max_step = 40
 
-        self.env = LockerEnvironment()
-        self.agent = QLearningAgent()
+        self.total_rewards = []
+        self.successful_episodes = []
+        self.acceptance_rates = []
+        self.invalid_move_rates = []
+        self.q_table_sizes = []
 
-        # 10000 yerine 5000 seçildi 10000 gereksizdi ama en basta oyle denemistim
-        # bu problemde state sayısı düşük olduğu için yeterli oluyor
-        self.episode_sayisi = 5000
-        self.max_step = 30
+        self.baseline_results = {}
 
-        # grafikler için tutuluyor
-        self.toplam_oduller = []
-        self.basarili_episode = []
-        self.random_oduller = []
-
-    def egit(self):
-
-        for episode in range(self.episode_sayisi):
-
+    def train(self):
+        for episode in range(self.episode_count):
             state = self.env.reset()
-            toplam_odul = 0
+            total_reward = 0
+            accepted_count = 0
+            invalid_count = 0
 
             for step in range(self.max_step):
-
-                # ajan epsilon-greedy ile aksiyon seçiyor
-                aksiyon = self.agent.aksiyon_sec(state)
-
-                # ortam aksiyonu uyguluyor
-                sonraki_state, odul, done = self.env.step(aksiyon)
-
-                # q tablosu güncelleniyor
-                self.agent.ogren(
+                action = self.agent.select_action(
                     state,
-                    aksiyon,
-                    odul,
-                    sonraki_state
+                    training=True,
+                    valid_actions=self.env.valid_actions(),
+                )
+                next_state, reward, done = self.env.step(action)
+
+                self.agent.learn(
+                    state,
+                    action,
+                    reward,
+                    next_state,
+                    done,
                 )
 
-                state = sonraki_state
-                toplam_odul += odul
+                state = next_state
+                total_reward += reward
+
+                if self.env.last_info.get("accepted"):
+                    accepted_count += 1
+                else:
+                    invalid_count += 1
 
                 if done:
                     break
 
-            self.toplam_oduller.append(toplam_odul)
+            steps_taken = step + 1
+            self.total_rewards.append(total_reward)
+            self.successful_episodes.append(1 if total_reward > 0 else 0)
+            self.acceptance_rates.append(accepted_count / steps_taken)
+            self.invalid_move_rates.append(invalid_count / steps_taken)
+            self.q_table_sizes.append(len(self.agent.q_table))
+            self.agent.update_epsilon()
 
-            if toplam_odul > 0:
-                self.basarili_episode.append(1)
-            else:
-                self.basarili_episode.append(0)
-
-            # episode sonunda keşif oranı azaltılıyor
-            self.agent.epsilon_guncelle()
-
-            if (episode + 1) % 100 == 0:
+            if (episode + 1) % 500 == 0:
                 print(
                     f"episode: {episode + 1} | "
-                    f"toplam ödül: {toplam_odul} | "
-                    f"epsilon: {self.agent.epsilon:.3f}"
+                    f"total reward: {total_reward} | "
+                    f"epsilon: {self.agent.epsilon:.3f} | "
+                    f"q states: {len(self.agent.q_table)}"
                 )
 
-        print("\n eğitim tamamlandı \n")
+        print("\ntraining completed\n")
+        return self.agent, self.total_rewards
 
-        return self.agent, self.toplam_oduller
+    def evaluate_agent(self, agent, episodes=600, training=False):
+        rewards = []
+        acceptance_rates = []
+        invalid_move_rates = []
 
-    def random_agent_test_et(self):
+        eval_env = LockerEnvironment(scenario=self.scenario, seed=self.seed + 100)
 
-        for episode in range(self.episode_sayisi):
-
-            state = self.env.reset()
-            toplam_odul = 0
+        for _ in range(episodes):
+            state = eval_env.reset()
+            total_reward = 0
+            accepted_count = 0
+            invalid_count = 0
 
             for step in range(self.max_step):
+                valid_actions = (
+                    eval_env.valid_actions()
+                    if agent is self.agent
+                    else None
+                )
+                action = agent.select_action(
+                    state,
+                    training=training,
+                    valid_actions=valid_actions,
+                )
+                next_state, reward, done = eval_env.step(action)
 
-                # random agent tamamen rastgele karar veriyor :)
-                aksiyon = random.randint(0, 2)
+                state = next_state
+                total_reward += reward
 
-                sonraki_state, odul, done = self.env.step(aksiyon)
-
-                state = sonraki_state
-                toplam_odul += odul
+                if eval_env.last_info.get("accepted"):
+                    accepted_count += 1
+                else:
+                    invalid_count += 1
 
                 if done:
                     break
 
-            self.random_oduller.append(toplam_odul)
+            steps_taken = step + 1
+            rewards.append(total_reward)
+            acceptance_rates.append(accepted_count / steps_taken)
+            invalid_move_rates.append(invalid_count / steps_taken)
 
-        print("\n random agent testi tamamlandı \n")
+        return {
+            "rewards": rewards,
+            "average_reward": sum(rewards) / len(rewards),
+            "acceptance_rate": sum(acceptance_rates) / len(acceptance_rates),
+            "invalid_move_rate": sum(invalid_move_rates) / len(invalid_move_rates),
+        }
 
-        return self.random_oduller
+    def evaluate_baselines(self):
+        q_evaluation_epsilon = self.agent.epsilon
+        self.agent.epsilon = 0
+
+        self.baseline_results = {
+            "Q-Learning Agent": self.evaluate_agent(self.agent),
+            "Rule-Based Agent": self.evaluate_agent(RuleBasedAgent()),
+            "Random Agent": self.evaluate_agent(
+                RandomAgent(seed=self.seed + 200),
+            ),
+        }
+
+        self.agent.epsilon = q_evaluation_epsilon
+        print("\nbaseline evaluation completed\n")
+        return self.baseline_results
+
+    # Backward-compatible Turkish method names.
+    def egit(self):
+        return self.train()
+
+    def random_agent_test_et(self):
+        result = self.evaluate_agent(RandomAgent(seed=self.seed + 200))
+        return result["rewards"]
+
+    @property
+    def toplam_oduller(self):
+        return self.total_rewards
+
+    @property
+    def basarili_episode(self):
+        return self.successful_episodes
