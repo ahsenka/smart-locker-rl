@@ -2,8 +2,6 @@ import random
 
 
 class LockerEnvironment:
-    """Smart locker placement environment with richer package constraints."""
-
     SIZE_NAMES = {
         0: "small",
         1: "medium",
@@ -49,6 +47,7 @@ class LockerEnvironment:
         return self.random.choices(values, weights=weights, k=1)[0]
 
     def _generate_package(self):
+        # Farkli senaryolarda paket dagilimini biraz degistirdim.
         if self.scenario == "peak_day":
             size_weights = [0.35, 0.30, 0.22, 0.13]
             priority_weights = [0.45, 0.35, 0.20]
@@ -78,6 +77,7 @@ class LockerEnvironment:
         }
 
     def get_state(self):
+        # State icinde sadece bos dolap sayilari ve gelen paket bilgileri tutuluyor.
         package = self.current_package
         return (
             self.empty_lockers[0],
@@ -120,6 +120,7 @@ class LockerEnvironment:
         return action >= package["size"]
 
     def valid_actions(self):
+        # Q-learning ajaninin bosuna imkansiz aksiyonlari denememesi icin.
         actions = [
             action
             for action in self.empty_lockers
@@ -165,6 +166,8 @@ class LockerEnvironment:
         return valid
 
     def _placement_reward(self, action):
+        # Odul fonksiyonu burada. Amac sadece yerlestirmek degil,
+        # buyuk ve ozel dolaplari da gereksiz harcamamak.
         package = self.current_package
         size = package["size"]
         priority = package["priority"]

@@ -24,6 +24,7 @@ class QLearningAgent:
         self.q_table = {}
 
     def create_q_values(self, state):
+        # Daha once gorulmeyen state icin q degerleri sifirdan basliyor.
         if state not in self.q_table:
             self.q_table[state] = np.zeros(self.action_count)
 
@@ -31,6 +32,7 @@ class QLearningAgent:
         self.create_q_values(state)
         action_pool = valid_actions or list(range(self.action_count))
 
+        # Egitimde bazen kesif yapmasi icin rastgele aksiyon sectiriyorum.
         if training and self.random.random() < self.epsilon:
             return self.random.choice(action_pool)
 
@@ -44,6 +46,7 @@ class QLearningAgent:
         old_value = self.q_table[state][action]
         future_value = 0 if done else np.max(self.q_table[next_state])
 
+        # Klasik q-learning guncellemesi.
         new_value = old_value + self.alpha * (
             reward + self.gamma * future_value - old_value
         )
@@ -56,7 +59,7 @@ class QLearningAgent:
             self.epsilon * self.epsilon_decay,
         )
 
-    # Backward-compatible Turkish method names.
+    # Eski fonksiyon isimleri bozulmasin diye biraktim.
     def aksiyon_sec(self, state):
         return self.select_action(state)
 
@@ -79,8 +82,6 @@ class RandomAgent:
 
 
 class RuleBasedAgent:
-    """Simple baseline that follows hand-written locker placement rules."""
-
     def select_action(self, state, training=False, valid_actions=None):
         (
             empty_small,

@@ -12,6 +12,7 @@ def run_simulation(env, agent, visualizer, max_steps=18):
     print("\nsmart locker simulation started\n")
 
     for step in range(max_steps):
+        # Egitilmis ajanla test simulasyonu yapiliyor
         action = agent.select_action(
             state,
             training=False,
@@ -27,6 +28,7 @@ def run_simulation(env, agent, visualizer, max_steps=18):
         frame_path = f"outputs/gifs/frame_{step}.png"
         frame_path_3d = f"outputs/gifs/frame_3d_{step}.png"
 
+        # Hem 2D hem de 3D frame uretiliyor
         visualizer.draw_simulation_frame(
             env.empty_lockers,
             step,
@@ -80,9 +82,11 @@ def main():
     trainer = Trainer(scenario="balanced", seed=42)
     visualizer = Visualizer()
 
+    # Once egitim ve karsilastirma sonuclari aliniyor
     agent, total_rewards = trainer.train()
     baseline_results = trainer.evaluate_baselines()
 
+    # Grafikler outputs/plots klasorune kaydediliyor
     visualizer.reward_plot(total_rewards)
     visualizer.success_plot(trainer.successful_episodes)
     visualizer.moving_average_plot(total_rewards)

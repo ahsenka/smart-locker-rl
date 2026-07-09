@@ -21,6 +21,7 @@ class Trainer:
         self.baseline_results = {}
 
     def train(self):
+        # Her episode basinda ortam sifirlaniyor ve ajan yeniden paket almaya basliyor.
         for episode in range(self.episode_count):
             state = self.env.reset()
             total_reward = 0
@@ -62,6 +63,7 @@ class Trainer:
             self.q_table_sizes.append(len(self.agent.q_table))
             self.agent.update_epsilon()
 
+            # Cok fazla cikti vermemek icin sadece belirli araliklarla yazdiriyorum.
             if (episode + 1) % 500 == 0:
                 print(
                     f"episode: {episode + 1} | "
@@ -74,6 +76,7 @@ class Trainer:
         return self.agent, self.total_rewards
 
     def evaluate_agent(self, agent, episodes=600, training=False):
+        # Egitimden sonra ajanlari ayni senaryo uzerinde test etmek icin.
         rewards = []
         acceptance_rates = []
         invalid_move_rates = []
@@ -123,6 +126,7 @@ class Trainer:
         }
 
     def evaluate_baselines(self):
+        # Testte q-learning ajaninin rastgele hareket etmemesi icin epsilon sifirlaniyor.
         q_evaluation_epsilon = self.agent.epsilon
         self.agent.epsilon = 0
 
@@ -138,7 +142,7 @@ class Trainer:
         print("\nbaseline evaluation completed\n")
         return self.baseline_results
 
-    # Backward-compatible Turkish method names.
+    # Eski kullanimlari bozmamak icin Turkce isimleri de tuttum.
     def egit(self):
         return self.train()
 
